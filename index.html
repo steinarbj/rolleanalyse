@@ -70,3 +70,248 @@
               <option value="Etterarbeid">Etterarbeid / Klipp</option>
               <option value="Teknisk Ledelse & Avvikling">Teknisk ledelse & Avvikling</option>
               <option value="Planlegging & Logistikk">Planlegging & Logistikk</option>
+              <option value="Redaksjon & Ledelse">Redaksjon & Ledelse</option>
+              <option value="Annet">Annet</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- Steg 2: Velg klynger du kjenner -->
+      <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
+        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-blue-600 text-xs flex items-center justify-center font-bold">2</span>
+          Hvilke fagområder kjenner du til?
+        </h2>
+        <p class="text-xs text-slate-400">Kryss av for de områdene du har god innsikt i. Du får kun opp vurderinger for rollene under disse.</p>
+
+        <div id="categorySelectors" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          <!-- Bygges opp dynamisk av JavaScript -->
+        </div>
+      </section>
+
+      <!-- Steg 3: Vurdering av roller -->
+      <section id="rolesContainerSection" class="space-y-4 hidden">
+        <div class="flex items-center justify-between px-2">
+          <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-blue-600 text-xs flex items-center justify-center font-bold">3</span>
+            Vurdering (<span id="roleCountLabel">0</span> roller)
+          </h2>
+          <span class="text-xs text-slate-400">0 til 100 på begge akser</span>
+        </div>
+
+        <div id="rolesList" class="space-y-4">
+          <!-- Dynamiske rollekort plasseres her -->
+        </div>
+      </section>
+
+      <!-- Send inn knapp og status -->
+      <div id="submitWrapper" class="hidden pt-2 space-y-3">
+        <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-500 font-semibold py-4 px-6 rounded-2xl shadow-lg transition duration-200 text-white text-base">
+          Send inn vurderinger
+        </button>
+        <p id="statusMsg" class="text-center text-sm hidden"></p>
+      </div>
+
+    </form>
+  </main>
+
+  <script>
+    const ROLE_DATA = {
+      "Bilde & Foto": [
+        "Bildemikser Flerkamera",
+        "Kamerakontrollør",
+        "Fotograf enkamera",
+        "Kameraoperatør flerkamera",
+        "Fotoredigerer",
+        "Grafikkoperatør",
+        "Grafikktilpasser"
+      ],
+      "Lyd": [
+        "Lyd A-lyd",
+        "Lyd flerkamera",
+        "Lyd radio",
+        "Lyd podcast",
+        "B-lyd / rigg"
+      ],
+      "Lys, Scene & Design": [
+        "Lysdesigner flerkamera",
+        "Lystekniker flerkamera",
+        "Lystekniker enkamera",
+        "Scenograf",
+        "Byggleder",
+        "Rekvisitør",
+        "Sjefsrekvisitør",
+        "Plotter",
+        "Studiostab"
+      ],
+      "Etterarbeid": [
+        "VB redigerer",
+        "Fargekorrigerer",
+        "Lyddesigner",
+        "VFX operatør"
+      ],
+      "Teknisk Ledelse & Avvikling": [
+        "Teknisk leder flerkamera",
+        "EVS operatør"
+      ],
+      "Planlegging & Logistikk": [
+        "Kostymør",
+        "Syer",
+        "Logistikk og forvaltning"
+      ],
+      "Redaksjon & Ledelse": [
+        "Bilderegissør",
+        "Innspillingsleder",
+        "Vaktsjef",
+        "Produsent",
+        "Script"
+      ]
+    };
+
+    // Bygg kategori-knappene
+    const catContainer = document.getElementById('categorySelectors');
+    Object.keys(ROLE_DATA).forEach(cat => {
+      const label = document.createElement('label');
+      label.className = "flex items-center gap-3 p-3.5 rounded-xl border border-slate-800 bg-slate-950/70 cursor-pointer hover:bg-slate-800/40 transition select-none text-sm";
+      label.innerHTML = `
+        <input type="checkbox" value="${cat}" class="cat-checkbox rounded border-slate-700 text-blue-600 focus:ring-0">
+        <span class="font-medium text-slate-200">${cat}</span>
+        <span class="ml-auto text-xs text-slate-500 font-mono">${ROLE_DATA[cat].length}</span>
+      `;
+      catContainer.appendChild(label);
+    });
+
+    const rolesContainerSection = document.getElementById('rolesContainerSection');
+    const rolesList = document.getElementById('rolesList');
+    const submitWrapper = document.getElementById('submitWrapper');
+    const roleCountLabel = document.getElementById('roleCountLabel');
+
+    document.querySelectorAll('.cat-checkbox').forEach(cb => {
+      cb.addEventListener('change', renderRoles);
+    });
+
+    function cleanId(str) {
+      return str.replace(/[^a-zA-Z0-9]/g, '_');
+    }
+
+    function renderRoles() {
+      const checkedCats = Array.from(document.querySelectorAll('.cat-checkbox:checked')).map(c => c.value);
+      rolesList.innerHTML = '';
+      
+      let allSelectedRoles = [];
+      checkedCats.forEach(cat => {
+        allSelectedRoles = allSelectedRoles.concat(ROLE_DATA[cat]);
+      });
+
+      roleCountLabel.textContent = allSelectedRoles.length;
+
+      if (allSelectedRoles.length > 0) {
+        rolesContainerSection.classList.remove('hidden');
+        submitWrapper.classList.remove('hidden');
+
+        allSelectedRoles.forEach(rolle => {
+          const roleId = cleanId(rolle);
+          const card = document.createElement('article');
+          card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-6 shadow-md";
+          card.innerHTML = `
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 class="font-bold text-base text-white tracking-wide">${rolle}</h3>
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300">Rolle</span>
+            </div>
+
+            <!-- Akse 1: Domene -->
+            <div class="space-y-2">
+              <div class="flex justify-between text-xs font-medium text-slate-400">
+                <span class="text-sky-400">0: Teknologi / IT / Drift</span>
+                <span id="lbl_domain_${roleId}" class="text-white font-bold bg-slate-800 px-2 py-0.5 rounded">50</span>
+                <span class="text-purple-400">100: Redaksjonelt / Innhold</span>
+              </div>
+              <input type="range" min="0" max="100" value="50" name="domain_${roleId}" data-rolename="${rolle}"
+                oninput="document.getElementById('lbl_domain_${roleId}').innerText = this.value"
+                class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Akse 2: Autonomi -->
+            <div class="space-y-2">
+              <div class="flex justify-between text-xs font-medium text-slate-400">
+                <span class="text-amber-400">0: Strengt instruert / Kjøreplan</span>
+                <span id="lbl_autonomy_${roleId}" class="text-white font-bold bg-slate-800 px-2 py-0.5 rounded">50</span>
+                <span class="text-emerald-400">100: Full autonomi</span>
+              </div>
+              <input type="range" min="0" max="100" value="50" name="autonomy_${roleId}" data-rolename="${rolle}"
+                oninput="document.getElementById('lbl_autonomy_${roleId}').innerText = this.value"
+                class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+          `;
+          rolesList.appendChild(card);
+        });
+      } else {
+        rolesContainerSection.classList.add('hidden');
+        submitWrapper.classList.add('hidden');
+      }
+    }
+
+    // Innsending til Apps Script
+    document.getElementById('surveyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      const statusMsg = document.getElementById('statusMsg');
+      
+      btn.innerText = "Sender svar...";
+      btn.disabled = true;
+
+      const formData = new FormData(e.target);
+      const payload = {
+        by: formData.get('by'),
+        fagfelt: formData.get('fagfelt'),
+        timestamp: new Date().toISOString(),
+        ratings: {}
+      };
+
+      // Finn alle utfylte slidere basert på data-rolename attributtet
+      const domainInputs = document.querySelectorAll('input[name^="domain_"]');
+      domainInputs.forEach(input => {
+        const rolename = input.getAttribute('data-rolename');
+        const roleId = cleanId(rolename);
+        const domainVal = Number(input.value);
+        const autonomyVal = Number(document.querySelector(`input[name="autonomy_${roleId}"]`).value);
+
+        payload.ratings[rolename] = {
+          domain: domainVal,
+          autonomy: autonomyVal
+        };
+      });
+
+      // Erstatt strengen under med URL-en fra Google Apps Script:
+      const GOOGLE_SCRIPT_URL = "https://script.google.com/a/macros/nrk.no/s/AKfycbwMBeNuNaa5qUUr-Zwhulr9LCg6uFDBXwkrdt1vO1nPjRIyqEEi7Quvq3mCMK9Dz2P4vA/exec";
+
+      if (GOOGLE_SCRIPT_URL.includes("LIM_INN")) {
+        alert("Husk å lime inn din Apps Script Web App URL i koden!");
+        btn.disabled = false;
+        btn.innerText = "Send inn vurderinger";
+        return;
+      }
+
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        statusMsg.textContent = "Tusen takk! Dine vurderinger er lagret.";
+        statusMsg.className = "text-center text-sm text-emerald-400 block font-medium";
+        btn.style.display = "none";
+        setTimeout(() => window.location.reload(), 2500);
+      } catch (err) {
+        statusMsg.textContent = "En feil oppstod ved innsending. Prøv igjen.";
+        statusMsg.className = "text-center text-sm text-rose-400 block font-medium";
+        btn.disabled = false;
+        btn.innerText = "Send inn vurderinger";
+      }
+    });
+  </script>
+</body>
+</html>
