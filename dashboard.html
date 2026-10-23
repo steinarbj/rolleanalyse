@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bento Dashboard - Rolleanalyse</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for data-visualisering -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen py-8 px-4 font-sans">
+  
+  <div class="max-w-6xl mx-auto space-y-6">
+    <!-- Header -->
+    <header class="flex justify-between items-end">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight text-white">Rolleanalyse Dashboard</h1>
+        <p class="text-slate-400 mt-1">Live data fra undersøkelsen</p>
+      </div>
+      <div class="text-right">
+        <span class="text-3xl font-black text-blue-500" id="totalResponses">0</span>
+        <p class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Innsendte svar</p>
+      </div>
+    </header>
+
+    <!-- Bento Grid -->
+    <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      
+      <!-- Stort kort: Hovedkartet (Scatter Plot) -->
+      <section class="lg:col-span-3 lg:row-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative min-h-[500px] flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold text-white">Rollekartet</h2>
+          <span class="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded">Størrelse = Antall svar</span>
+        </div>
+        <div class="flex-grow relative w-full h-full min-h-[400px]">
+          <canvas id="bubbleChart"></canvas>
+        </div>
+        
+        <!-- Akse-forklaringer (Overlay) -->
+        <div class="absolute bottom-2 left-6 right-6 flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500 pointer-events-none">
+          <span>← Teknologi / Drift</span>
+          <span>Redaksjonelt / Innhold →</span>
+        </div>
+      </section>
+
+      <!-- Lite kort 1: Kontrollpanel / Filtrering -->
+      <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider mb-2">Filtrer Data</h2>
+        
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Vis svar fra (By)</label>
+          <select id="filterBy" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+            <option value="Alle">Alle byer</option>
+            <option value="Oslo">Oslo</option>
+            <option value="Bergen">Bergen</option>
+            <option value="Trondheim">Trondheim</option>
+            <option value="Tromsø">Tromsø</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Respondentens kompetanse</label>
+          <select id="filterFag" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition">
+            <option value="Alle">Alle fagfelt</option>
+            <option value="Bilde & Foto">Bilde & Foto</option>
+            <option value="Lyd">Lyd</option>
+            <option value="Lys, Scene & Design">Lys, Scene & Design</option>
+            <option value="Etterarbeid">Etterarbeid / Klipp</option>
+            <option value="Teknisk Ledelse & Avvikling">Teknisk ledelse & Avvikling</option>
+            <option value="Planlegging & Logistikk">Planlegging & Logistikk</option>
+            <option value="Redaksjon & Ledelse">Redaksjon & Ledelse</option>
+          </select>
+        </div>
+        <button id="resetFilters" class="w-full mt-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded-xl transition">Tilbakestill</button>
+      </section>
+
+      <!-- Lite kort 2: Innsikt & Ekstremer -->
+      <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col justify-between space-y-4">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider mb-2">Topplisten</h2>
+        
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <p class="text-[10px] text-emerald-500 font-bold uppercase mb-1">Mest autonome rolle</p>
+          <p id="statAutonom" class="text-sm font-semibold text-white">Laster...</p>
+        </div>
+        
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <p class="text-[10px] text-purple-500 font-bold uppercase mb-1">Mest redaksjonelle rolle</p>
+          <p id="statRedaksjon" class="text-sm font-semibold text-white">Laster...</p>
+        </div>
+
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <p class="text-[10px] text-sky-500 font-bold uppercase mb-1">Mest tekniske rolle</p>
+          <p id="statTeknisk" class="text-sm font-semibold text-white">Laster...</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. LIM INN DIN APPS SCRIPT URL HER:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/a/macros/nrk.no/s/AKfycbwMBeNuNaa5qUUr-Zwhulr9LCg6uFDBXwkrdt1vO1nPjRIyqEEi7Quvq3mCMK9Dz2P4vA/exec";
+    // ==========================================
+
+    let rawData = [];
+    let myChart = null;
+
+    // Hent data når siden laster
+    async function fetchData() {
+      if (GOOGLE_SCRIPT_URL.includes("LIM_INN")) {
+        alert("Du må lime inn Apps Script URL-en i koden for at dashboardet skal virke.");
+        return;
+      }
+      try {
+        const response = await fetch(GOOGLE_SCRIPT_URL);
+        rawData = await response.json();
+        updateDashboard();
+      } catch (err) {
+        console.error("Klarte ikke hente data:", err);
+      }
+    }
+
+    // Grupper og aggreger data basert på filter
+    function processData(data, filterBy, filterFag) {
+      // Filtrer radene
+      const filtered = data.filter(row => {
+        const matchBy = filterBy === "Alle" || row.By === filterBy;
+        const matchFag = filterFag === "Alle" || row.Fagfelt === filterFag;
+        return matchBy && matchFag;
+      });
+
+      // Aggreger (finn gjennomsnitt) for hver rolle
+      const grouped = {};
+      filtered.forEach(row => {
+        if (!grouped[row.Rollenavn]) {
+          grouped[row.Rollenavn] = { domSum: 0, autSum: 0, count: 0 };
+        }
+        grouped[row.Rollenavn].domSum += Number(row.Domene_Score);
+        grouped[row.Rollenavn].autSum += Number(row.Autonomi_Score);
+        grouped[row.Rollenavn].count += 1;
+      });
+
+      // Lag formattet for Chart.js
+      const chartData = [];
+      let maxAut = { name: "-", val: -1 };
+      let maxRed = { name: "-", val: -1 };
+      let minTek = { name: "-", val: 101 };
+
+      Object.keys(grouped).forEach(rolle => {
+        const avgDom = grouped[rolle].domSum / grouped[rolle].count;
+        const avgAut = grouped[rolle].autSum / grouped[rolle].count;
+        
+        // Oppdater statistikk
+        if (avgAut > maxAut.val) maxAut = { name: rolle, val: avgAut };
+        if (avgDom > maxRed.val) maxRed = { name: rolle, val: avgDom };
+        if (avgDom < minTek.val) minTek = { name: rolle, val: avgDom };
+
+        chartData.push({
+          x: avgDom,
+          y: avgAut,
+          r: Math.min(25, 5 + (grouped[rolle].count * 3)), // Størrelse på boblen
+          rolleNavn: rolle,
+          antallSvar: grouped[rolle].count
+        });
+      });
+
+      return { chartData, totalSvar: filtered.length, maxAut, maxRed, minTek };
+    }
+
+    // Tegn eller oppdater grafen
+    function updateDashboard() {
+      const byVal = document.getElementById('filterBy').value;
+      const fagVal = document.getElementById('filterFag').value;
+      
+      const { chartData, totalSvar, maxAut, maxRed, minTek } = processData(rawData, byVal, fagVal);
+
+      // Oppdater tall i UI
+      document.getElementById('totalResponses').innerText = totalSvar;
+      document.getElementById('statAutonom').innerText = maxAut.name;
+      document.getElementById('statRedaksjon').innerText = maxRed.name;
+      document.getElementById('statTeknisk').innerText = minTek.name;
+
+      // Konfigurer Chart.js
+      const ctx = document.getElementById('bubbleChart').getContext('2d');
+      
+      const chartConfig = {
+        type: 'bubble',
+        data: {
+          datasets: [{
+            label: 'Roller',
+            data: chartData,
+            backgroundColor: 'rgba(59, 130, 246, 0.6)', // Tailwind blue-500 med opacity
+            borderColor: 'rgba(59, 130, 246, 1)',
+            borderWidth: 1,
+            hoverBackgroundColor: 'rgba(236, 72, 153, 0.8)', // Tailwind pink-500
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(15, 23, 42, 0.9)',
+              titleFont: { size: 14 },
+              bodyFont: { size: 12 },
+              padding: 12,
+              callbacks: {
+                title: (ctx) => ctx[0].raw.rolleNavn,
+                label: (ctx) => {
+                  const d = ctx.raw;
+                  return [
+                    `Domene: ${Math.round(d.x)} (Teknisk->Redaksjon)`,
+                    `Autonomi: ${Math.round(d.y)} (Styrt->Autonom)`,
+                    `Antall vurderinger: ${d.antallSvar}`
+                  ];
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              min: 0, max: 100,
+              grid: { color: 'rgba(51, 65, 85, 0.5)' }, // slate-700
+              ticks: { color: '#94a3b8' }, // slate-400
+              title: { display: false }
+            },
+            y: {
+              min: 0, max: 100,
+              grid: { color: 'rgba(51, 65, 85, 0.5)' },
+              ticks: { color: '#94a3b8' },
+              title: {
+                display: true,
+                text: 'Lav Autonomi (0) ➔ Høy Autonomi (100)',
+                color: '#64748b' // slate-500
+              }
+            }
+          }
+        }
+      };
+
+      if (myChart) {
+        myChart.data = chartConfig.data;
+        myChart.update();
+      } else {
+        myChart = new Chart(ctx, chartConfig);
+      }
+    }
+
+    // Lyttere for filter endring
+    document.getElementById('filterBy').addEventListener('change', updateDashboard);
+    document.getElementById('filterFag').addEventListener('change', updateDashboard);
+    document.getElementById('resetFilters').addEventListener('click', () => {
+      document.getElementById('filterBy').value = "Alle";
+      document.getElementById('filterFag').value = "Alle";
+      updateDashboard();
+    });
+
+    // Start
+    fetchData();
+
+  </script>
+</body>
+</html>
