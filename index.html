@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rolleanalyse Produksjon</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    input[type=range]::-webkit-slider-thumb {
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen py-10 px-4">
+  <main class="max-w-3xl mx-auto space-y-6">
+
+    <!-- Header Bento Card -->
+    <header class="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-6 sm:p-8 backdrop-blur shadow-xl">
+      <div class="inline-block px-3 py-1 bg-blue-500/20 text-blue-400 font-medium text-xs rounded-full mb-3">Undersøkelse</div>
+      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">Kartlegging av produksjonsroller</h1>
+      <p class="text-slate-400 mt-2 text-sm sm:text-base leading-relaxed">
+        Hvor plasserer ulike roller seg i spennet mellom teknologi og redaksjon, og hvor stor operativ autonomi har de? Velg områdene du har kjennskap til, og plasser rollene på aksene.
+      </p>
+    </header>
+
+    <form id="surveyForm" class="space-y-6">
+
+      <!-- Steg 1: Om respondenten -->
+      <section class="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-blue-600 text-xs flex items-center justify-center font-bold">1</span>
+          Om deg
+        </h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Arbeidssted (By)</label>
+            <select name="by" required class="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500">
+              <option value="" disabled selected>Velg by...</option>
+              <option value="Oslo">Oslo</option>
+              <option value="Bergen">Bergen</option>
+              <option value="Trondheim">Trondheim</option>
+              <option value="Tromsø">Tromsø</option>
+              <option value="Annet">Annet distriktskontor</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Ditt primære fagfelt</label>
+            <select name="fagfelt" required class="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500">
+              <option value="" disabled selected>Velg fagområde...</option>
+              <option value="Bilde">Bilde / Kamera</option>
+              <option value="Lyd">Lyd</option>
+              <option value="Set/Lys">Lys / Scenografi / Set</option>
+              <option value="Etterarbeid">Klipp / Etterarbeid</option>
+              <option value="Teknisk Ledelse">Teknisk ledelse / MCR</option>
+              <option value="Produksjonsledelse">Produksjonsledelse / Planlegging</option>
+              <option value="Redaksjonelt">Redaksjonelt / Innhold</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- Steg 2: Velg grupper du kjenner -->
+      <section class="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
+        <div class="flex justify-between items-baseline">
+          <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-blue-600 text-xs flex items-center justify-center font-bold">2</span>
+            Hvilke fagklynger kjenner du til?
+          </h2>
+        </div>
+        <p class="text-xs text-slate-400">Kryss av for de områdene du har erfaring med, så slipper du å vurdere roller du ikke kjenner.</p>
+
+        <div id="categorySelectors" class="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+          <!-- Genereres dynamisk med JS basert på rolle-datagrunnlaget -->
+        </div>
+      </section>
+
+      <!-- Steg 3: Vurdering av roller -->
+      <section id="rolesContainerSection" class="space-y-4 hidden">
+        <div class="flex items-center justify-between px-2">
+          <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-blue-600 text-xs flex items-center justify-center font-bold">3</span>
+            Vurdering av roller (<span id="roleCountLabel">0</span> roller)
+          </h2>
+          <span class="text-xs text-slate-400">Dra i gliderne for å svare</span>
+        </div>
+
+        <div id="rolesList" class="space-y-4">
+          <!-- Dynamiske rollekort dukker opp her -->
+        </div>
+      </section>
+
+      <!-- Send inn knapp -->
+      <div id="submitWrapper" class="hidden pt-4">
+        <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 px-6 rounded-2xl shadow-lg transition-all text-base">
+          Send inn vurderinger
+        </button>
+      </div>
+
+    </form>
+  </main>
+
+  <script>
+    // 1. Eksempel-datasett basert på klyngene i arket ditt
+    const ROLE_DATA = {
+      "Bildegruppa": ["Bildemikser Flerkamera", "Grafikkoperatør", "Fotograf enkamera", "Fotoredigerer"],
+      "Lydgruppa": ["Lyd A-lyd", "Lyd flerkamera", "Lyd radio", "Lyd podcast"],
+      "Set & Lys": ["Scenograf", "Byggleder", "Lysdesigner flerkamera", "Lystekniker flerkamera", "Rekvisitør", "Plotter"],
+      "Leveranse & MCR": ["Teknisk leder flerkamera", "Kamerakontrollør", "EVS operatør"],
+      "Etterarbeid": ["Fargekorrigerer", "VFX operatør", "VB redigerer", "Lyddesigner"]
+    };
+
+    // Bygg kategori-knappene
+    const catContainer = document.getElementById('categorySelectors');
+    Object.keys(ROLE_DATA).forEach(cat => {
+      const label = document.createElement('label');
+      label.className = "flex items-center gap-3 p-3.5 rounded-xl border border-slate-700 bg-slate-900/60 cursor-pointer hover:bg-slate-700/40 transition select-none text-sm";
+      label.innerHTML = `
+        <input type="checkbox" value="${cat}" class="cat-checkbox rounded border-slate-600 text-blue-600 focus:ring-0">
+        <span class="font-medium text-slate-200">${cat}</span>
+      `;
+      catContainer.appendChild(label);
+    });
+
+    // Håndter oppdatering av rollekort når sjekkbokser endres
+    const rolesContainerSection = document.getElementById('rolesContainerSection');
+    const rolesList = document.getElementById('rolesList');
+    const submitWrapper = document.getElementById('submitWrapper');
+    const roleCountLabel = document.getElementById('roleCountLabel');
+
+    document.querySelectorAll('.cat-checkbox').forEach(cb => {
+      cb.addEventListener('change', renderRoles);
+    });
+
+    function renderRoles() {
+      const checkedCats = Array.from(document.querySelectorAll('.cat-checkbox:checked')).map(c => c.value);
+      rolesList.innerHTML = '';
+      
+      let allSelectedRoles = [];
+      checkedCats.forEach(cat => {
+        allSelectedRoles = allSelectedRoles.concat(ROLE_DATA[cat]);
+      });
+
+      roleCountLabel.textContent = allSelectedRoles.length;
+
+      if (allSelectedRoles.length > 0) {
+        rolesContainerSection.classList.remove('hidden');
+        submitWrapper.classList.remove('hidden');
+
+        allSelectedRoles.forEach(rolle => {
+          const card = document.createElement('article');
+          card.className = "bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 sm:p-6 space-y-6 shadow-md";
+          card.innerHTML = `
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+              <h3 class="font-bold text-base text-white tracking-wide">${rolle}</h3>
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-700 text-slate-300">Rolle</span>
+            </div>
+
+            <!-- Akse 1: Domene -->
+            <div class="space-y-2">
+              <div class="flex justify-between text-xs font-medium text-slate-400">
+                <span class="text-sky-400">0: Ren teknologi / Rigging / IT</span>
+                <span id="lbl_domain_${rolle}" class="text-white font-bold">50</span>
+                <span class="text-purple-400">100: Rent redaksjonelt / Innhold</span>
+              </div>
+              <input type="range" min="0" max="100" value="50" name="domain_${rolle}"
+                oninput="document.getElementById('lbl_domain_${rolle}').innerText = this.value"
+                class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+
+            <!-- Akse 2: Autonomi -->
+            <div class="space-y-2">
+              <div class="flex justify-between text-xs font-medium text-slate-400">
+                <span class="text-amber-400">0: Strengt instruert / Kjøreplan</span>
+                <span id="lbl_autonomy_${rolle}" class="text-white font-bold">50</span>
+                <span class="text-emerald-400">100: Full operativ autonomi</span>
+              </div>
+              <input type="range" min="0" max="100" value="50" name="autonomy_${rolle}"
+                oninput="document.getElementById('lbl_autonomy_${rolle}').innerText = this.value"
+                class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            </div>
+          `;
+          rolesList.appendChild(card);
+        });
+      } else {
+        rolesContainerSection.classList.add('hidden');
+        submitWrapper.classList.add('hidden');
+      }
+    }
+
+    // Innsending
+    document.getElementById('surveyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      btn.innerText = "Sender svar...";
+      btn.disabled = true;
+
+      const formData = new FormData(e.target);
+      const payload = {
+        by: formData.get('by'),
+        fagfelt: formData.get('fagfelt'),
+        timestamp: new Date().toISOString(),
+        ratings: {}
+      };
+
+      for (let [key, val] of formData.entries()) {
+        if (key.startsWith('domain_')) {
+          const rName = key.replace('domain_', '');
+          if (!payload.ratings[rName]) payload.ratings[rName] = {};
+          payload.ratings[rName].domain = Number(val);
+        } else if (key.startsWith('autonomy_')) {
+          const rName = key.replace('autonomy_', '');
+          if (!payload.ratings[rName]) payload.ratings[rName] = {};
+          payload.ratings[rName].autonomy = Number(val);
+        }
+      }
+
+      // Sett inn Google Apps Script Web App URL her:
+      const GOOGLE_SCRIPT_URL = "HER_LIMER_DU_INN_APPS_SCRIPT_URL";
+
+      try {
+        if (GOOGLE_SCRIPT_URL.startsWith("HER_")) {
+          // Demomodus hvis URL ikke er satt opp ennå
+          console.log("Data som sendes:", payload);
+          alert("Testmodus: Svarene er logget i konsollen (F12)!");
+        } else {
+          await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          alert("Takk for dine svar!");
+        }
+        window.location.reload();
+      } catch (err) {
+        alert("Feil ved innsending. Prøv igjen.");
+        btn.disabled = false;
+        btn.innerText = "Send inn vurderinger";
+      }
+    });
+  </script>
+</body>
+</html>
